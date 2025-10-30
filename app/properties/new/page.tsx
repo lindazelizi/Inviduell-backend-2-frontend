@@ -1,66 +1,115 @@
 "use client";
 
-import React from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
+import PageWrapper from "@/components/PageWrapper";
 import { sendJson } from "@/lib/http";
+
+type NewProperty = {
+  title: string;
+  description?: string;
+  location?: string;
+  price_per_night: number;
+  is_active: boolean;
+};
 
 export default function NewPropertyPage() {
   const router = useRouter();
 
-  const [title, setTitle] = React.useState("");
-  const [location, setLocation] = React.useState("");
-  const [price, setPrice] = React.useState<number>(0);
-  const [isActive, setIsActive] = React.useState(true);
+  const [form, setForm] = React.useState<NewProperty>({
+    title: "",
+    description: "",
+    location: "",
+    price_per_night: 0,
+    is_active: true,
+  });
+  const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
     setError(null);
-    setLoading(true);
     try {
-      await sendJson("/properties", "POST", {
-        title,
-        location: location || null,
-        price_per_night: price,
-        is_active: isActive,
-      });
-      router.push("/properties");
-      router.refresh();
+      await sendJson<{ data: any }>("/properties", "POST", form);
+      router.push("/properties?created=1");
     } catch (err: any) {
       setError(err?.message ?? "Något gick fel");
-    } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
   return (
-    <div>
+    <PageWrapper>
       <h1 className="text-2xl font-bold mb-4">Ny property</h1>
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input className="border p-2 w-full" placeholder="Titel"
-               value={title} onChange={e => setTitle(e.target.value)} required />
+      {error ? (
+        <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          {error}
+        </div>
+      ) : null}
 
-        <input className="border p-2 w-full" placeholder="Plats"
-               value={location} onChange={e => setLocation(e.target.value)} />
+      <form onSubmit={onSubmit} className="space-y-4 max-w-md">
+        <div>
+          <label className="block text-sm mb-1">Titel</label>
+          <input
+            className="w-full border rounded p-2"
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            required
+          />
+        </div>
 
-        <input className="border p-2 w-full" type="number" min={0}
-               placeholder="Pris per natt"
-               value={price} onChange={e => setPrice(Number(e.target.value))} />
+        <div>
+          <label className="block text-sm mb-1">Beskrivning</label>
+          <textarea
+            className="w-full border rounded p-2"
+            value={form.description ?? ""}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          />
+        </div>
 
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={isActive}
-                 onChange={e => setIsActive(e.target.checked)} />
-          Aktiv
-        </label>
+        <div>
+          <label className="block text-sm mb-1">Plats</label>
+          <input
+            className="w-full border rounded p-2"
+            value={form.location ?? ""}
+            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+          />
+        </div>
 
-        {error && <div className="text-red-600">{error}</div>}
+        <div>
+          <label className="block text-sm mb-1">Pris per natt (kr)</label>
+          <input
+            type="number"
+            className="w-full border rounded p-2"
+            value={form.price_per_night}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))
+            }
+            min={0}
+          />
+        </div>
 
-        <button disabled={loading} className="border rounded px-3 py-1">
-          {loading ? "Sparar..." : "Spara"}
+        <div className="flex items-center gap-2">
+          <input
+            id="is_active"
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, is_active: e.target.checked }))
+            }
+          />
+          <label htmlFor="is_active">Aktiv</label>
+        </div>
+
+        <button
+          disabled={saving}
+          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+        >
+          {saving ? "Sparar…" : "Spara"}
         </button>
       </form>
-    </div>
+    </PageWrapper>
   );
 }
