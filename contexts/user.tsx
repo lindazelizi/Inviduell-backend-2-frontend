@@ -1,28 +1,35 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
 
-type User = { id: string; email?: string | null };
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { getJson } from "@/lib/http";
 
-type Ctx = { user: User | null; loading: boolean; error: string | null };
-const Ctx = createContext<Ctx>({ user: null, loading: true, error: null });
+type User = { id: string; email: string };
+type Ctx = { user: User | null; isLoading: boolean };
+
+const UserCtx = createContext<Ctx>({ user: null, isLoading: true });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/me`;
-    fetch(url, { credentials: "include" })
-      .then(async (r) => (r.ok ? r.json() : null))
-      .then((u) => setUser(u))
-      .catch((e) => setError(e?.message ?? "Något gick fel"))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const me = await getJson<User>("/auth/me");
+        setUser(me);
+      } catch {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  return <Ctx.Provider value={{ user, loading, error }}>{children}</Ctx.Provider>;
+  return (
+    <UserCtx.Provider value={{ user, isLoading }}>
+      {children}
+    </UserCtx.Provider>
+  );
 }
 
-export function useUser() {
-  return useContext(Ctx);
-}
+export const useUser = () => useContext(UserCtx);

@@ -1,13 +1,15 @@
 import "./globals.css";
-import { UserProvider } from "@/contexts/user";
-
-export const metadata = { title: "Bnb", description: "Bnb app" };
+import Providers from "@/components/Providers";
+import AppHeader from "@/components/AppHeader";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="sv">
       <body>
-        <UserProvider>{children}</UserProvider>
+        <Providers>
+          <AppHeader />
+          <main className="max-w-3xl mx-auto p-6">{children}</main>
+        </Providers>
       </body>
     </html>
   );

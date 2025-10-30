@@ -19,6 +19,10 @@ export default async function PropertiesPage() {
   return (
     <PageWrapper>
       <h1 className="text-2xl font-bold mb-4">Properties</h1>
+      {/* ovanför <ul> … */}
+<div className="mb-4">
+  <a href="/properties/new" className="border rounded px-3 py-1 inline-block">+ Ny property</a>
+</div>
       <ul className="space-y-3">
         {props.map((p) => (
           <li key={p.id} className="border rounded p-3">

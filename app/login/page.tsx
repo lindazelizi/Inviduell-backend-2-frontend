@@ -1,35 +1,52 @@
 "use client";
-import { useState } from "react";
-import { sendJson } from "@/lib/http";
+
+import * as React from "react";
 import { useRouter } from "next/navigation";
+import { sendJson } from "@/lib/http"; // ✅ rätt export
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPass] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setLoading(true);
     try {
-      await sendJson<{ user: unknown }>("/auth/login", "POST", { email, password });
+      await sendJson("/auth/login", "POST", { email, password });
       router.replace("/properties");
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (err: any) {
+      setError(err?.message ?? "Något gick fel");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <main className="max-w-sm mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Logga in</h1>
-      <form className="space-y-3" onSubmit={onSubmit}>
-        <input className="border rounded w-full px-3 py-2" placeholder="E-post"
-               value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-        <input className="border rounded w-full px-3 py-2" placeholder="Lösenord"
-               value={password} onChange={(e) => setPass(e.target.value)} type="password" required />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button className="border rounded px-4 py-2">Logga in</button>
+    <main className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Logga in</h1>
+      <form onSubmit={onSubmit} className="space-y-3 max-w-sm">
+        <input
+          type="email"
+          placeholder="E-post"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="border rounded p-2 w-full"
+        />
+        <input
+          type="password"
+          placeholder="Lösenord"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="border rounded p-2 w-full"
+        />
+        {error ? <p className="text-red-600 text-sm">{error}</p> : null}
+        <button disabled={loading} className="border rounded px-3 py-1">
+          {loading ? "Loggar in…" : "Logga in"}
+        </button>
       </form>
     </main>
   );
