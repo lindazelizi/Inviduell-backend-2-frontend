@@ -9,29 +9,25 @@ export default function AppHeader() {
 
   return (
     <header className="border-b">
-      <div className="max-w-3xl mx-auto p-4 flex items-center justify-between gap-4">
+      <div className="max-w-3xl mx-auto p-4 flex items-center justify-between">
+        <Link href="/" prefetch={false} className="font-semibold">Bnb</Link>
+
         <nav className="flex items-center gap-4">
-          <Link href="/" className="font-semibold">Bnb</Link>
+          <Link href="/properties" prefetch={false}>Properties</Link>
+          {/* Skydda bokningssidan i headern */}
+          {user ? (
+            <Link href="/booking" prefetch={false}>Mina bokningar</Link>
+          ) : null}
 
-          {!isLoading && user && (
-            <Link href="/booking" className="underline">
-              Mina bokningar
-            </Link>
-          )}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          {isLoading ? (
-            <span className="text-sm text-gray-500">Laddar…</span>
-          ) : user ? (
-            <LogoutButton />
-          ) : (
+          {/* Auth-knappar */}
+          {!isLoading && !user ? (
             <>
-              <Link href="/login" className="underline">Logga in</Link>
-              <Link href="/register" className="underline">Registrera</Link>
+              <Link href="/login" prefetch={false}>Logga in</Link>
+              <Link href="/register" prefetch={false}>Registrera</Link>
             </>
-          )}
-        </div>
+          ) : null}
+          {!isLoading && user ? <LogoutButton /> : null}
+        </nav>
       </div>
     </header>
   );
