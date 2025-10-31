@@ -1,14 +1,12 @@
+"use client";
+
 const BASE = process.env.NEXT_PUBLIC_BACKEND_BASE_URL!;
 
 export async function getJson<T>(path: string, init: RequestInit = {}) {
   const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    method: init.method ?? "GET",
+    method: "GET",
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
+    ...init,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return (await res.json()) as T;
@@ -21,7 +19,6 @@ export async function sendJson<T>(
   init: RequestInit = {}
 ) {
   const res = await fetch(`${BASE}${path}`, {
-    ...init,
     method,
     credentials: "include",
     headers: {
@@ -29,11 +26,10 @@ export async function sendJson<T>(
       ...(init.headers ?? {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+    ...init,
   });
+
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = (data as any)?.error ?? `${res.status} ${res.statusText}`;
-    throw new Error(msg);
-  }
+  if (!res.ok) throw new Error((data as any)?.error ?? `${res.status} ${res.statusText}`);
   return data as T;
 }

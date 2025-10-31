@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import PageWrapper from "@/components/PageWrapper";
-import { sendJson } from "@/lib/http";
+import { sendJson } from "@/lib/http-client";
 
 type NewProperty = {
   title: string;

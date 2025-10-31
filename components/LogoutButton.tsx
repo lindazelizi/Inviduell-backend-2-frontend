@@ -1,6 +1,6 @@
 "use client";
 
-import { sendJson } from "@/lib/http";
+import { sendJson } from "@/lib/http-client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 

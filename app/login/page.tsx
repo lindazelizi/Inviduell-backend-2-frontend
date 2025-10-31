@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { sendJson } from "@/lib/http"; // ✅ rätt export
+import { sendJson } from "@/lib/http-client"; // ✅ rätt export
 
 export default function LoginPage() {
   const router = useRouter();

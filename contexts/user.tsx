@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getJson } from "@/lib/http";
+import { getJson } from "@/lib/http-client";
 
 type User = { id: string; email: string };
 type Ctx = { user: User | null; isLoading: boolean };
