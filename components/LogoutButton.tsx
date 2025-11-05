@@ -1,31 +1,20 @@
 "use client";
 
-import { sendJson } from "@/lib/http-client";
 import { useRouter } from "next/navigation";
-import * as React from "react";
+import { useUser } from "@/contexts/user";
 
 export default function LogoutButton() {
+  const { logout } = useUser();
   const router = useRouter();
-  const [busy, setBusy] = React.useState(false);
 
-  const onLogout = async () => {
-    try {
-      setBusy(true);
-      await sendJson("/auth/logout", "POST");
-      router.replace("/login");
-    } finally {
-      setBusy(false);
-    }
-  };
+  async function onClick() {
+    await logout();
+    router.replace("/?loggedout=1");
+  }
 
   return (
-    <button
-      onClick={onLogout}
-      disabled={busy}
-      className="border rounded px-3 py-1 text-sm"
-      aria-busy={busy}
-    >
-      {busy ? "Loggar ut…" : "Logga ut"}
+    <button onClick={onClick} className="rounded border px-2 py-1 text-sm">
+      Logga ut
     </button>
   );
 }

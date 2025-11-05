@@ -1,35 +1,63 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { getJson } from "@/lib/http-client";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { getJson, sendJson } from "@/lib/http-client";
 
-type User = { id: string; email: string };
-type Ctx = { user: User | null; isLoading: boolean };
+export type User = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "guest" | "host";
+} | null;
 
-const UserCtx = createContext<Ctx>({ user: null, isLoading: true });
+type Ctx = {
+  user: User;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
+};
+
+const UserContext = createContext<Ctx | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const me = await getJson<User>("/auth/me");
-        setUser(me);
-      } catch {
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+  const refresh = useCallback(async () => {
+    try {
+      const me = await getJson<{ id: string; email: string; name: string | null; role: "guest" | "host" }>("/auth/me");
+      setUser(me);
+    } catch {
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    await sendJson("/auth/login", "POST", { email, password });
+    await refresh();
+  }, [refresh]);
+
+  const logout = useCallback(async () => {
+    await sendJson("/auth/logout", "POST");
+    setUser(null);
+    setIsLoading(false);
+    setTimeout(() => { refresh().catch(() => void 0); }, 0);
+  }, [refresh]);
+
   return (
-    <UserCtx.Provider value={{ user, isLoading }}>
+    <UserContext.Provider value={{ user, isLoading, login, logout, refresh }}>
       {children}
-    </UserCtx.Provider>
+    </UserContext.Provider>
   );
 }
 
-export const useUser = () => useContext(UserCtx);
+export function useUser() {
+  const ctx = useContext(UserContext);
+  if (!ctx) throw new Error("useUser must be used within <UserProvider>");
+  return ctx;
+}

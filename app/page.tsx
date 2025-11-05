@@ -1,64 +1,55 @@
-export const dynamic = "force-dynamic"; // alltid färska properties
-
+import Image from "next/image";
 import Link from "next/link";
 import { getJson } from "@/lib/http-server";
+import type { Property } from "@/types/models";
+import { toPublicUrl } from "@/lib/images";
+import Greeting from "@/components/Greeting";     // 👈 client-komponent
+import SignupHint from "@/components/SignupHint"; // 👈 client-komponent
 
-type Property = {
-  id: string;
-  title: string;
-  location: string | null;
-  price_per_night: number;
-  is_active: boolean;
-};
+export const dynamic = "force-dynamic";
 
-async function getProperties(): Promise<Property[]> {
-  const res = await getJson<{ data: Property[] }>("/properties");
-  // Backend-policyn släpper bara igenom aktiva ändå, men vi filtrerar lokalt med.
-  return res.data.filter((p) => p.is_active);
+async function getPublicProps(): Promise<Property[]> {
+  const { data } = await getJson<{ data: Property[] }>("/properties");
+  return (data || []).filter((p) => p.is_active);
 }
 
 export default async function HomePage() {
-  const props = await getProperties();
+  const props = await getPublicProps();
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Hitta ett boende</h1>
-      <p className="text-sm text-gray-600 mb-6">
-        Den här sidan är publik – du kan bläddra bland aktiva properties. När du trycker
-        “Boka” leder vi dig till bokningsformuläret. Är du inte inloggad får du logga in först.
-      </p>
+    <main className="max-w-3xl mx-auto p-6 space-y-6">
+      <section>
+        <Greeting />        {/* 👈 funkar nu utan server/client-krock */}
+        <h1 className="text-2xl font-bold mb-2">Hitta ett boende</h1>
+        <p className="text-sm text-gray-600 mb-4">
+          Publik lista över aktiva boenden. Klicka för detaljer.
+        </p>
+        <SignupHint />
+      </section>
 
-      {props.length === 0 ? (
-        <p className="text-sm text-gray-600">Inga aktiva properties just nu.</p>
-      ) : (
-        <ul className="space-y-3">
-          {props.map((p) => (
-            <li key={p.id} className="border rounded p-4 flex items-center justify-between gap-4">
-              <div>
-                <div className="font-semibold">{p.title}</div>
-                {p.location && <div className="text-sm">{p.location}</div>}
-                <div className="text-sm">{p.price_per_night} kr / natt</div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Link
-                  href={`/booking/new?propertyId=${p.id}`}
-                  className="border rounded px-3 py-1"
-                >
-                  Boka
-                </Link>
-                <Link
-                  href="/properties"
-                  className="text-sm underline"
-                  title="Se alla properties (intern vy)"
-                >
-                  Visa lista
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {props.map((p) => {
+            const img = toPublicUrl("properties", p.main_image_url) ?? "/file.svg";
+            return (
+              <Link
+                key={p.id}
+                href={`/properties/${p.id}`}
+                className="block rounded-2xl border hover:shadow-md overflow-hidden"
+              >
+                <div className="relative w-full aspect-[4/3] bg-gray-100">
+                  <Image src={img} alt={p.title} fill className="object-cover" loading="lazy" />
+                </div>
+                <div className="p-3">
+                  <div className="font-semibold">{p.title}</div>
+                  <div className="text-sm text-gray-600">{p.location}</div>
+                  <div className="text-sm">{p.price_per_night} kr / natt</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </main>
   );
 }
