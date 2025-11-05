@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require("path");
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -8,7 +10,6 @@ const nextConfig = {
   },
 
   async rewrites() {
-    // Proxa allt under /api/* till din Hono-backend
     const target = process.env.BACKEND_ORIGIN || "http://localhost:5177";
     return [
       {
@@ -17,6 +18,8 @@ const nextConfig = {
       },
     ];
   },
+
+  outputFileTracingRoot: path.join(__dirname),
 };
 
 module.exports = nextConfig;

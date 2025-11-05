@@ -28,25 +28,35 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await getJson<{ id: string; email: string; name: string | null; role: "guest" | "host" }>("/auth/me");
       setUser(me);
-    } catch {
+    } catch (err: any) {
+      if (err?.status !== 401 && !String(err?.message ?? "").startsWith("401")) {
+        console.error("Auth check failed:", err);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const login = useCallback(async (email: string, password: string) => {
-    await sendJson("/auth/login", "POST", { email, password });
-    await refresh();
+  useEffect(() => {
+    refresh();
   }, [refresh]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      await sendJson("/auth/login", "POST", { email, password });
+      await refresh();
+    },
+    [refresh]
+  );
 
   const logout = useCallback(async () => {
     await sendJson("/auth/logout", "POST");
     setUser(null);
     setIsLoading(false);
-    setTimeout(() => { refresh().catch(() => void 0); }, 0);
+    setTimeout(() => {
+      refresh().catch(() => void 0);
+    }, 0);
   }, [refresh]);
 
   return (

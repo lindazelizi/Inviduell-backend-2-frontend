@@ -7,8 +7,6 @@ export type Property = {
   is_active: boolean;
   owner_id?: string;
   created_at?: string;
-
-  // nya fält
   main_image_url?: string | null;
   image_urls?: string[] | null;
 };

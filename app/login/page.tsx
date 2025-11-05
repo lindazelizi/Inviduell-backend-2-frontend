@@ -34,22 +34,8 @@ export default function LoginPage() {
     <main>
       <h1 className="text-2xl font-bold mb-4">Logga in</h1>
       <form onSubmit={onSubmit} className="space-y-3 max-w-sm">
-        <input
-          type="email"
-          placeholder="E-post"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border rounded p-2 w-full"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Lösenord"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border rounded p-2 w-full"
-          required
-        />
+        <input type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded p-2 w-full" required />
+        <input type="password" placeholder="Lösenord" value={password} onChange={(e) => setPassword(e.target.value)} className="border rounded p-2 w-full" required />
         {error ? <p className="text-red-600 text-sm">{error}</p> : null}
         <button disabled={loading} className="rounded bg-black px-3 py-2 text-white disabled:opacity-50">
           {loading ? "Loggar in…" : "Logga in"}

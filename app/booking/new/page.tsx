@@ -7,6 +7,7 @@ import { getJson, sendJson } from "@/lib/http-client";
 import { useUser } from "@/contexts/user";
 
 type Property = { id: string; title: string; price_per_night: number };
+type BookedRange = { check_in: string; check_out: string };
 
 function toISODate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -17,6 +18,13 @@ function daysBetween(a: string, b: string) {
   const ms = d2.getTime() - d1.getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
+function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  const as = new Date(aStart).getTime();
+  const ae = new Date(aEnd).getTime();
+  const bs = new Date(bStart).getTime();
+  const be = new Date(bEnd).getTime();
+  return as < be && ae > bs;
+}
 
 export default function NewBookingPage() {
   const { user, isLoading } = useUser();
@@ -24,26 +32,25 @@ export default function NewBookingPage() {
   const [propertyId, setPropertyId] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
+  const [booked, setBooked] = useState<BookedRange[]>([]);
+  const [loadingRanges, setLoadingRanges] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preselected, setPreselected] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Behåll queryn för att kunna skicka med i "nästa"-länkar
   const currentQuery = useMemo(() => {
     const q = searchParams.toString();
     return q ? `?${q}` : "";
   }, [searchParams]);
 
-  // Hämta properties till dropdown
   useEffect(() => {
     getJson<{ data: Property[] }>("/properties")
       .then((r) => setProps(r.data))
       .catch((e) => setErr((e as Error).message));
   }, []);
 
-  // Initiera datum (i dag + i morgon)
   useEffect(() => {
     const today = toISODate(new Date());
     const tomorrow = toISODate(new Date(Date.now() + 24 * 60 * 60 * 1000));
@@ -51,7 +58,6 @@ export default function NewBookingPage() {
     setCheckOut((d) => d || tomorrow);
   }, []);
 
-  // Förvälj property om vi kom från annan sida (?property_id=... eller ?propertyId=...)
   useEffect(() => {
     const fromSnake = searchParams.get("property_id") ?? "";
     const fromCamel = searchParams.get("propertyId") ?? "";
@@ -62,14 +68,28 @@ export default function NewBookingPage() {
     }
   }, [searchParams]);
 
-  // Om användaren ändrar check-in: se till att check-out minst är dagen efter
   useEffect(() => {
-    if (!checkIn || !checkOut) return;
-    if (daysBetween(checkIn, checkOut) <= 0) {
-      const nextDay = toISODate(new Date(new Date(checkIn).getTime() + 24 * 60 * 60 * 1000));
-      setCheckOut(nextDay);
+    if (!propertyId) {
+      setBooked([]);
+      return;
     }
-  }, [checkIn]); // avsiktligt: rejustera bara när check-in ändras
+    setLoadingRanges(true);
+    getJson<{ data: BookedRange[] }>(`/properties/${propertyId}/booked-ranges`)
+      .then((r) => setBooked(r.data || []))
+      .catch(() => setBooked([]))
+      .finally(() => setLoadingRanges(false));
+  }, [propertyId]);
+
+  useEffect(() => {
+    if (!checkIn || !checkOut || booked.length === 0) return;
+    const hit = booked.find((br) => overlaps(checkIn, checkOut, br.check_in, br.check_out));
+    if (hit) {
+      const nextStart = toISODate(new Date(new Date(hit.check_out).getTime()));
+      const minOut = toISODate(new Date(new Date(nextStart).getTime() + 24 * 60 * 60 * 1000));
+      setCheckIn(nextStart);
+      if (new Date(checkOut) <= new Date(nextStart)) setCheckOut(minOut);
+    }
+  }, [checkIn, checkOut, booked]);
 
   const selected = props.find((p) => p.id === propertyId) || null;
   const nights = checkIn && checkOut ? Math.max(0, daysBetween(checkIn, checkOut)) : 0;
@@ -79,20 +99,22 @@ export default function NewBookingPage() {
     e.preventDefault();
     setErr(null);
 
-    // Om ej inloggad: skicka till login och ta med next + ev. förvalda parametrar
     if (!user) {
       const next = `/booking/new${currentQuery}`;
       router.push(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
-
-    // Klientvalidering av datum
     if (!propertyId) {
       setErr("Välj ett boende först.");
       return;
     }
     if (nights <= 0) {
       setErr("Check-out måste vara efter check-in.");
+      return;
+    }
+    const conflict = booked.some((br) => overlaps(checkIn, checkOut, br.check_in, br.check_out));
+    if (conflict) {
+      setErr("Datumen krockar med en annan bokning. Välj andra datum.");
       return;
     }
 
@@ -104,11 +126,13 @@ export default function NewBookingPage() {
       });
       router.push("/booking?created=1");
     } catch (e) {
-      const msg = (e as Error).message;
-      if (msg.startsWith("401")) {
-        setErr("Du måste vara inloggad för att skapa en booking.");
+      const raw = (e as Error).message || "";
+      if (raw.includes("no_overlap_per_property") || raw.toLowerCase().includes("overlap")) {
+        setErr("Datumen krockar med en annan bokning. Välj andra datum.");
+      } else if (raw.startsWith("401")) {
+        setErr("Du måste vara inloggad för att skapa en bokning.");
       } else {
-        setErr(msg);
+        setErr(raw || "Kunde inte skapa bokningen.");
       }
     }
   }
@@ -118,52 +142,19 @@ export default function NewBookingPage() {
 
   return (
     <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Ny booking</h1>
+      <h1 className="text-2xl font-bold mb-4">Ny bokning</h1>
 
-      {/* Banner om man inte är inloggad */}
       {!isLoading && !user && (
         <div className="mb-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           Du måste vara inloggad för att boka.
           <div className="mt-2 flex gap-2">
-            <Link
-              href={`/login?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`}
-              className="rounded bg-black px-3 py-1 text-white"
-            >
-              Logga in
-            </Link>
-            <Link
-              href={`/register?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`}
-              className="rounded border px-3 py-1"
-            >
-              Skapa konto
-            </Link>
+            <Link href={`/login?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`} className="rounded bg-black px-3 py-1 text-white">Logga in</Link>
+            <Link href={`/register?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`} className="rounded border px-3 py-1">Skapa konto</Link>
           </div>
         </div>
       )}
 
-      {err && (
-        <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-          {err}{" "}
-          {!user && (
-            <>
-              <Link
-                href={`/login?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`}
-                className="underline"
-              >
-                Logga in
-              </Link>{" "}
-              eller{" "}
-              <Link
-                href={`/register?next=${encodeURIComponent(`/booking/new${currentQuery}`)}`}
-                className="underline"
-              >
-                skapa konto
-              </Link>
-              .
-            </>
-          )}
-        </div>
-      )}
+      {err && <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">{err}</div>}
 
       <form onSubmit={onSubmit} className="space-y-3 max-w-sm">
         <label className="text-sm">Boende</label>
@@ -184,12 +175,28 @@ export default function NewBookingPage() {
 
         {preselected && selected && (
           <p className="text-xs text-gray-600">
-            Förifyllt från detaljsidan.{" "}
-            <Link className="underline" href={`/properties/${selected.id}`}>
-              Ändra boende
-            </Link>
-            .
+            Förifyllt från detaljsidan. <Link className="underline" href={`/properties/${selected.id}`}>Ändra boende</Link>.
           </p>
+        )}
+
+        {propertyId && (
+          <div className="rounded border p-3 bg-gray-50 text-xs text-gray-700">
+            <div className="mb-1 font-semibold">{loadingRanges ? "Hämtar bokade datum…" : "Spärrade datum:"}</div>
+            {!loadingRanges && (
+              <>
+                {booked.length === 0 ? (
+                  <div>Inga spärrade datum just nu.</div>
+                ) : (
+                  <ul className="list-disc pl-4 space-y-1">
+                    {booked.map((br, i) => (
+                      <li key={i}>{br.check_in} → {br.check_out}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 opacity-70">Du kan inte välja datum som överlappar intervallen ovan.</div>
+              </>
+            )}
+          </div>
         )}
 
         <label className="text-sm">Check-in</label>
@@ -214,20 +221,14 @@ export default function NewBookingPage() {
           disabled={formDisabled}
         />
 
-        {/* Prisöversikt */}
         {selected && nights > 0 && (
           <div className="rounded border p-3 text-sm bg-gray-50">
-            {nights} natt{nights > 1 ? "er" : ""} × {selected.price_per_night} kr ={" "}
-            <span className="font-semibold">{total} kr</span>
+            {nights} natt{nights > 1 ? "er" : ""} × {selected.price_per_night} kr = <span className="font-semibold">{total} kr</span>
           </div>
         )}
 
-        <button
-          type="submit"
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-          disabled={formDisabled}
-        >
-          Skapa booking
+        <button type="submit" className="rounded bg-black px-4 py-2 text-white disabled:opacity-50" disabled={formDisabled}>
+          Skapa bokning
         </button>
       </form>
     </main>
